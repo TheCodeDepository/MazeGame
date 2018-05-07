@@ -14,11 +14,17 @@ namespace MazeGame
         Coordinate cellPosition;
         int index = 0;
         int rand = 1;
+        int numberOfVistedCells = 0;
+        int NUmberOfCells = 0;
+
 
         public Coordinate[] dirs { get; set; }
         public Cell[,] MazeMap { get; }
         public Coordinate StartPoint { get; set; }
         public Coordinate EndPoint { get; set; }
+
+        public event EventHandler<EventArgs> MazeComplete;
+
 
 
         public MazeFactory(int height, int width)
@@ -27,17 +33,17 @@ namespace MazeGame
             this.width = width;
             //Define Maze Size in 2D Arr of cells
             MazeMap = new Cell[height, width];
-
+            NUmberOfCells = MazeMap.GetLength(0) * MazeMap.GetLength(1)-1;
             dirs = new Coordinate[4];
             Directions.AllDirections.CopyTo(dirs);
             EndPoint = GetMazeEndPoint();
-            cellPosition = new Coordinate(EndPoint.x,EndPoint.y);
+            cellPosition = new Coordinate(EndPoint.x, EndPoint.y);
 
         }
 
         private Coordinate GetMazeEndPoint()
         {
-            int num = r.Next(0,4);
+            int num = r.Next(0, 4);
 
             switch (num)
             {
@@ -55,8 +61,6 @@ namespace MazeGame
                     return new Coordinate(0, 0);
                 default:
                     return new Coordinate(0, 0);
-                    
-   
             }
 
         }
@@ -64,58 +68,61 @@ namespace MazeGame
 
         public void GenerateMaze()
         {
-            //Randomly determine when to chuffle the Direction list
-            if (index >= rand)
+            bool IsComplete = false;
+            bool MoveForward = false;           
+          
+            while (!IsComplete)
             {
-                dirs.Shuffle();
-                rand = r.Next(height / 5);
-            }
-            index++;
-            //Checks each direction for a potential Route
-            foreach (Coordinate point in dirs)
-            {
-                int cx = cellPosition.x + point.x;
-                int cy = cellPosition.y + point.y;
+                MoveForward = false;
+                MazeMap[cellPosition.x, cellPosition.y].visited = true;
 
-                //Check that cell is in bounds
-                if (cx >= 0 && cx < width && cy >= 0 && cy < height)
+                //Randomly determine when to chuffle the Direction list
+                if (index >= rand)
                 {
-                    //Check if the tile is already visited
-                    if (!MazeMap[cx, cy].visited)
+                    dirs.Shuffle();
+                    rand = r.Next(height / 5);
+                }
+                index++;
+                //Checks each direction for a potential Route
+                foreach (Coordinate point in dirs)
+                {
+                    int cx = cellPosition.x + point.x;
+                    int cy = cellPosition.y + point.y;
+                    //Check that cell is in bounds
+                    if (cx >= 0 && cx < width && cy >= 0 && cy < height)
                     {
-                        //Carve through walls from this tile to next
-                        Carve(cellPosition, point);
-
-                        //Set Currentcell as nextcells Prior visited
-                        MazeMap[cx, cy].PriorCell = cellPosition;
-
-                        //Update Cell position to newly visited location
-                        cellPosition = new Coordinate(cx, cy);
-
-                        //Mark newlt visited cell as visited
-                        MazeMap[cellPosition.x, cellPosition.y].visited = true;
-
-                        //Recursively call this method on the next tile
-                        GenerateMaze();
+                        //Check if the tile is already visited
+                        if (!MazeMap[cx, cy].visited)
+                        {
+                            //Carve through walls from this tile to next
+                            Carve(cellPosition, point);
+                            //Set Currentcell as next cells Prior visited
+                            MazeMap[cx, cy].PriorCell = cellPosition;
+                            //Update Cell position to newly visited location
+                            cellPosition = new Coordinate(cx, cy);
+                            numberOfVistedCells++;
+                            //Recursively call this method on the next tile
+                            MoveForward = true;
+                            break;
+                        }
                     }
                 }
-            }
-
-            //check if process has returned to its starting point (the exit point for the maze)
-            if (MazeMap[cellPosition.x, cellPosition.y].PriorCell.x == EndPoint.x && MazeMap[cellPosition.x, cellPosition.y].PriorCell.y == EndPoint.y)
-            {
-                return;
-            }
-
-            //If it failed to find a direction and didnt get back to the EndPoint, move the current position back to the prior cell and Recall the method.
-            cellPosition = MazeMap[cellPosition.x, cellPosition.y].PriorCell;
-            GenerateMaze();
+                //check if process has returned to its starting point (the exit point for the maze)
+                if (!MoveForward)
+                {
+                    //If it failed to find a direction and didnt get back to the EndPoint, move the current position back to the prior cell and Recall the method.
+                    cellPosition = MazeMap[cellPosition.x, cellPosition.y].PriorCell;     
+                }                
+                if (NUmberOfCells == numberOfVistedCells)
+                {
+                    IsComplete = true;
+                }
+            }         
+            MazeComplete(this, EventArgs.Empty);
         }
-
 
         private void Carve(Coordinate pos, Coordinate dir)
         {
-
             if (dir.Equals(Directions.West))
             {
                 MazeMap[pos.y, pos.x].West = true;

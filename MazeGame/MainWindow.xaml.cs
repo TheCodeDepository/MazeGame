@@ -1,18 +1,13 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
 using System.Windows.Shapes;
+using System.Data;
+using System.IO;
 
 
 
@@ -42,12 +37,54 @@ namespace MazeGame
         public ObservableCollection<Difficulty> Difficulties { get { return new ObservableCollection<Difficulty> { Difficulty.Easy, Difficulty.Medium, Difficulty.Hard, Difficulty.Extreme }; } }
         MazeFactory factory;
 
+        private Thread thread;
+        private delegate void MazeGenerationComplete();
+        MazeGenerationComplete mazeGenerationComplete;
+
         private void Button_Click(object sender, RoutedEventArgs e)
         {
             DefineGrid();
             MazeGrid.Children.Clear();
+            GenRandomMaze();
+
+
+        }
+
+        private void GenRandomMaze()
+        {
             factory = new MazeFactory(GridHeight, GridWidth);
-            factory.GenerateMaze();
+            mazeGenerationComplete = ThreadComplete;
+            factory.MazeComplete += MazeComplete;
+            //factory.GenerateMaze();
+
+            ThreadStart threadStart = new ThreadStart(factory.GenerateMaze);
+            thread = new Thread(threadStart);
+            thread.Start();
+        }
+
+        private void MazeComplete(object sender, EventArgs e)
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(mazeGenerationComplete);
+            }
+            else
+            {
+                ThreadComplete();
+            }
+        }
+
+        private void ThreadComplete()
+        {
+            CarveMaze();
+            FinishLine();
+            PlayerSprite();
+        }
+
+
+
+        private void CarveMaze()
+        {
             for (int i = 0; i < GridHeight; i++)
             {
                 for (int j = 0; j < GridWidth; j++)
@@ -89,10 +126,6 @@ namespace MazeGame
                     Grid.SetColumn(border, j);
                 }
             }
-
-            FinishLine();
-            PlayerSprite();
-
         }
 
         private void FinishLine()
