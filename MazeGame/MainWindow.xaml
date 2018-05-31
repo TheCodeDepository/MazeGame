@@ -3,44 +3,64 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:MazeGame"
+        x:Name="_this"
+     
         mc:Ignorable="d"
         Title="MainWindow"
         MinHeight="550"        
-        MinWidth="500">
-
+        MinWidth="500"
+        KeyDown="MazeGrid_KeyDown">
     <Grid >
         <Grid.RowDefinitions>
-            <RowDefinition Height="50" />
+            <RowDefinition Height="44" />
             <RowDefinition />
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="234" />
-            <ColumnDefinition Width="167" />
-            <ColumnDefinition />
+            <ColumnDefinition Width="190" />
+            <ColumnDefinition Width="140" />
+            <ColumnDefinition Width="140*" />
+            <ColumnDefinition Width="140*"/>
+            <ColumnDefinition Width="140"/>
         </Grid.ColumnDefinitions>
         <Grid Name="MazeGrid"
-              Grid.ColumnSpan="3"
+              Grid.ColumnSpan="4"
               Grid.Row="1"
               KeyDown="MazeGrid_KeyDown"
               HorizontalAlignment="Center"
-              Margin="15,15,15,15"
-              Width="{Binding RelativeSource={RelativeSource Self}, Path=ActualHeight}"
-              
+              Margin="165,15,25,15"
+              Width="{Binding RelativeSource={RelativeSource Self}, Path=ActualHeight}"              
               >
         </Grid>
         <Button Content="Generate Maze"
-                Height="auto"
-                Width="auto"
-                Margin="10,10,10,10"
-                Click="Button_Click"
+                Margin="5"
+                Click="GenerateButton_Click"
                 KeyDown="MazeGrid_KeyDown" />
-        <ComboBox Grid.Column="1"
-                  Margin="10,10,10,10"
+        <Button Content="Restart Maze"
+                Margin="10"
+                Click="RestartButton_Click"
+                Grid.Column="4"
+                 />
+        <ComboBox Grid.Column="1"                 
+                  Margin="10"
                   ItemsSource="{Binding Difficulties}"
                   SelectionChanged="ComboBox_SelectionChanged"
                   x:Name="diffCbo"
                   SelectedIndex="0"
-                  IsTabStop="False" />
+                  IsTabStop="False"
+                  />
+
+        <DockPanel Grid.Column="2" Margin="10">
+            <Label Content="Time:"/>
+            <Label Name="timeDisplay" 
+                   DataContext="timeTaken"
+                   />
+        </DockPanel>
+        
+        <DockPanel  Grid.Column="3" Margin="10">
+            <Label Content="Moves:"/>
+            <Label Name="movesDisplay"
+                   Content="0"/>
+        </DockPanel>
+
     </Grid>
 </Window>

@@ -6,10 +6,9 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
-using System.Data;
-using System.IO;
-
-
+using System.Windows.Threading;
+using System.Reactive.Linq;
+using System.ComponentModel;
 
 namespace MazeGame
 {
@@ -22,45 +21,66 @@ namespace MazeGame
         {
             InitializeComponent();
             DataContext = this;
+
         }
 
 
         public int GridHeight { get; set; }
         public int GridWidth { get; set; }
 
-        public double WindowWidth { get {return WindowWidth; } }
+        public bool isFinished { get; set; } = false;
+        public int Moves
+        {
+            get { return int.Parse(movesDisplay.Content.ToString()); }
+            set { movesDisplay.Content = value; }
+        }
 
-        public int borderThickness { get { return 3; } set { borderThickness = value; } }
+
+
+        public double WindowWidth { get { return WindowWidth; } }
+
+        public int borderThickness { get { return 1; } set { borderThickness = value; } }
         public int cornerThickness { get { return 1; } set { cornerThickness = value; } }
-        public int borderMargin { get { return -3; } set { borderThickness = value; } }
-
+        public int borderMargin { get { return -1; } set { borderThickness = value; } }
+        public int playerMargin { get { return 1; ; } set { playerMargin = value; } }
+        public Ellipse start { get; set; }
         public ObservableCollection<Difficulty> Difficulties { get { return new ObservableCollection<Difficulty> { Difficulty.Easy, Difficulty.Medium, Difficulty.Hard, Difficulty.Extreme }; } }
-        MazeFactory factory;
+
+
+        public int row { get; set; }
+        public int col { get; set; }
+
+        public Time timeTaken;
+        private MazeFactory factory;
 
         private Thread thread;
-        private delegate void MazeGenerationComplete();
-        MazeGenerationComplete mazeGenerationComplete;
 
-        private void Button_Click(object sender, RoutedEventArgs e)
+        private delegate void MazeGenerationComplete();
+        private MazeGenerationComplete mazeGenerationComplete;
+
+        private DebounceDispatcher debounceTimer = new DebounceDispatcher();
+
+        private void GenerateButton_Click(object sender, RoutedEventArgs e)
         {
             DefineGrid();
+            Moves = 0;
             MazeGrid.Children.Clear();
+            isFinished = false;
             GenRandomMaze();
-
-
         }
+
 
         private void GenRandomMaze()
         {
             factory = new MazeFactory(GridHeight, GridWidth);
             mazeGenerationComplete = ThreadComplete;
             factory.MazeComplete += MazeComplete;
-            //factory.GenerateMaze();
-
             ThreadStart threadStart = new ThreadStart(factory.GenerateMaze);
             thread = new Thread(threadStart);
             thread.Start();
+
         }
+
 
         private void MazeComplete(object sender, EventArgs e)
         {
@@ -79,9 +99,18 @@ namespace MazeGame
             CarveMaze();
             FinishLine();
             PlayerSprite();
+
+
+
+            timeTaken = new Time();
+            timeTaken.PropertyChanged += timeDisplayUpdated;
+            timeTaken.Start();
         }
 
-
+        private void timeDisplayUpdated(object sender, PropertyChangedEventArgs e)
+        {
+            timeDisplay.Content = timeTaken.TimeElapsed;
+        }
 
         private void CarveMaze()
         {
@@ -145,8 +174,8 @@ namespace MazeGame
         {
             start = new Ellipse
             {
-                Margin = new Thickness(6),
-                Fill = Brushes.Red,               
+                Margin = new Thickness(playerMargin),
+                Fill = Brushes.Red,
             };
             MazeGrid.Children.Add(start);
             Grid.SetRow(start, factory.StartPoint.y);
@@ -167,67 +196,107 @@ namespace MazeGame
             }
         }
 
-        Ellipse start;
-
         private void MazeGrid_KeyDown(object sender, KeyEventArgs e)
         {
-            var tmp = factory.MazeMap[Grid.GetRow(start), Grid.GetColumn(start)];
+            if (isFinished)
+            {
+                return;
+            }
+            thread.Abort();
+            debounceTimer.Debounce(10, (p) =>
+            {
+                row = Grid.GetRow(start);
+                col = Grid.GetColumn(start);
+                thread = new Thread(() => MoveSprite(e));
+                thread.Start();
+
+            });
+        }
+
+
+
+        private void MoveSprite(KeyEventArgs e)
+        {
+            var cell = factory.MazeMap[row, col];
             switch (e.Key)
             {
                 case Key.Left:
-                    if (Grid.GetColumn(start) - 1 >= 0)
+                    if (cell.West)
                     {
-                        if (tmp.West)
+                        if (col - 1 >= 0)
                         {
-                            Grid.SetColumn(start, Grid.GetColumn(start) - 1);
-                            IsFinish();
+                            Dispatcher.Invoke(MoveWest);
                         }
                     }
                     break;
 
                 case Key.Up:
-                    if (Grid.GetRow(start) - 1 >= 0)
+                    if (cell.North)
                     {
-                        if (tmp.North)
+                        if (row - 1 >= 0)
                         {
-                            Grid.SetRow(start, Grid.GetRow(start) - 1);
-                            IsFinish();
+                            Dispatcher.Invoke(MoveNorth);
                         }
                     }
                     break;
 
                 case Key.Right:
-                    if (Grid.GetColumn(start) + 1 <= GridWidth)
+                    if (cell.East)
                     {
-                        if (tmp.East)
+                        if (col + 1 <= GridWidth)
                         {
-                            Grid.SetColumn(start, Grid.GetColumn(start) + 1);
-                            IsFinish();
+                            Dispatcher.Invoke(MoveEast);
                         }
                     }
                     break;
 
                 case Key.Down:
-                    if (Grid.GetRow(start) + 1 <= GridHeight)
+                    if (cell.South)
                     {
-                        if (tmp.South)
+                        if (row + 1 <= GridHeight)
                         {
-                            Grid.SetRow(start, Grid.GetRow(start) + 1);
-                            IsFinish();
+                            Dispatcher.Invoke(MoveSouth);
                         }
                     }
                     break;
 
             }
+            Dispatcher.Invoke(IsFinish);
+        }
+
+        private void MoveSouth()
+        {
+            Grid.SetRow(start, ++row);
+            Moves++;
+        }
+
+        private void MoveEast()
+        {
+            Grid.SetColumn(start, ++col);
+            Moves++;
+        }
+
+        private void MoveNorth()
+        {
+            Grid.SetRow(start, --row);
+            Moves++;
+        }
+
+        private void MoveWest()
+        {
+            Grid.SetColumn(start, --col);
+            Moves++;
         }
 
         private void IsFinish()
         {
-            var t = Grid.GetRow(start);
-            var e = Grid.GetColumn(start);
-            if (Grid.GetRow(start) == factory.EndPoint.y && Grid.GetColumn(start) == factory.EndPoint.x)
+
+            if (row == factory.EndPoint.y && col == factory.EndPoint.x)
             {
-                MessageBox.Show("Congrats!");
+                timeTaken.Stop();
+                MessageBox.Show($"Congratulation's You've completed the maze!\nTime Taken: {timeTaken.TimeElapsed}\nMoves: {Moves}");          
+                isFinished = true;
+
             }
         }
 
@@ -254,9 +323,17 @@ namespace MazeGame
             }
         }
 
-        private void MazeGrid_SizeChanged(object sender, SizeChangedEventArgs e)
+        private void RestartButton_Click(object sender, RoutedEventArgs e)
         {
-         
+            if (factory != null)
+            {
+                Grid.SetRow(start, factory.StartPoint.y);
+                Grid.SetColumn(start, factory.StartPoint.x);
+                Moves = 0;
+                timeTaken.Start();
+                isFinished = false;
+            }
         }
+
     }
 }

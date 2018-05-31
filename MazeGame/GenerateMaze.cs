@@ -33,7 +33,7 @@ namespace MazeGame
             this.width = width;
             //Define Maze Size in 2D Arr of cells
             MazeMap = new Cell[height, width];
-            NUmberOfCells = MazeMap.GetLength(0) * MazeMap.GetLength(1)-1;
+            NUmberOfCells = MazeMap.GetLength(0) * MazeMap.GetLength(1);
             dirs = new Coordinate[4];
             Directions.AllDirections.CopyTo(dirs);
             EndPoint = GetMazeEndPoint();
@@ -69,8 +69,8 @@ namespace MazeGame
         public void GenerateMaze()
         {
             bool IsComplete = false;
-            bool MoveForward = false;           
-          
+            bool MoveForward = false;
+            numberOfVistedCells++;
             while (!IsComplete)
             {
                 MoveForward = false;
